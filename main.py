@@ -42,6 +42,8 @@ def load_vgg(sess, vgg_path):
     layer4 = graph.get_tensor_by_name(vgg_layer4_out_tensor_name)
     layer7 = graph.get_tensor_by_name(vgg_layer7_out_tensor_name)
 
+    tf.Print(layer3, [layer3])
+
     return input_tensor, kp, layer3, layer4, layer7
 tests.test_load_vgg(load_vgg, tf)
 
@@ -58,9 +60,12 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     # TODO: Implement function
     conv_1x1 = tf.layers.conv2d(vgg_layer7_out, num_classes, 1, padding='same',
                                 kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
-    output = tf.layers.conv2d_transpose(conv_1x1, num_classes, 4, 2,padding='same', 
-                                kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
-    #tf.Print(output,[tf.shape(output)])
+    layer7_transpose = tf.layers.conv2d_transpose(conv_1x1, num_classes, 4, 2,padding='same', 
+                                                  kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    layer4_transpose = tf.layers.conv2d_transpose(layer7_transpose, num_classes, 4, 2,padding='same', 
+                                                  kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    output = tf.layers.conv2d_transpose(layer4_transpose, num_classes, 16, 8,padding='same', 
+                                                  kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
     return output
 tests.test_layers(layers)
 
@@ -75,7 +80,12 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     :return: Tuple of (logits, train_op, cross_entropy_loss)
     """
     # TODO: Implement function
-    return None, None, None
+    logits = tf.reshape(nn_last_layer, (-1, num_classes))
+    cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=correct_label))
+    optimizer = tf.train.AdamOptimizer(learning_rate)
+    train_op = optimizer.minimize(cross_entropy_loss)
+
+    return logits, train_op, cross_entropy_loss
 tests.test_optimize(optimize)
 
 
@@ -95,7 +105,11 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param learning_rate: TF Placeholder for learning rate
     """
     # TODO: Implement function
-    pass
+    for epoch in range(epochs):
+      print('Epoch: %u ' % (epoch,))
+      for image, label in get_batches_fn(batch_size):
+        #Training
+        sess.run([train_op, cross_entropy_loss], feed_dict={input_image: image, correct_label: label, keep_prob: 0.5, learning_rate: 0.0001})
 tests.test_train_nn(train_nn)
 
 
@@ -113,7 +127,15 @@ def run():
     # You'll need a GPU with at least 10 teraFLOPS to train on.
     #  https://www.cityscapes-dataset.com/
 
+    correct_label = tf.placeholder(tf.float32, shape = [None, image_shape[0], image_shape[1], num_classes])
+    learning_rate = tf.placeholder(tf.float32, name='learning_rate')
+
     with tf.Session() as sess:
+
+        # Run Variables
+        epochs = 10
+        batch_size = 5
+
         # Path to vgg model
         vgg_path = os.path.join(data_dir, 'vgg')
         # Create function to get batches
@@ -125,8 +147,14 @@ def run():
         # TODO: Build NN using load_vgg, layers, and optimize function
         input_image, keep_prob, layer3_out, layer4_out, layer7_out = load_vgg(sess, vgg_path)
         output_layer = layers(layer3_out, layer4_out, layer7_out, num_classes)
+        logits, train_op, cross_entropy_loss = optimize(output_layer, correct_label,learning_rate, num_classes)
 
+        sess.run(tf.global_variables_initializer())
+        print("TEST")
+        print(tf.shape(layer3_out))
+        layer3_out = tf.Print(layer3_out,[layer3_out, tf.shape(layer3_out)])
         # TODO: Train NN using the train_nn function
+        train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image, correct_label, keep_prob, learning_rate) 
 
         # TODO: Save inference data using helper.save_inference_samples
         #  helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
