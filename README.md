@@ -1,4 +1,13 @@
 # Semantic Segmentation
+
+### Results
+
+![](/home/peter/CarND/Term3/CarND-Semantic-Segmentation/runs/pic1.png) 
+
+![](/home/peter/CarND/Term3/CarND-Semantic-Segmentation/runs/pic2.png) 
+
+![](/home/peter/CarND/Term3/CarND-Semantic-Segmentation/runs/pic3.png) 
+
 ### Introduction
 In this project, you'll label the pixels of a road in images using a Fully Convolutional Network (FCN).
 
